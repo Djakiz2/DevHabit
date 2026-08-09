@@ -365,3 +365,4 @@ FodyWeavers.xsd
 ./containers
 
 /.containers/seq_data
+/.containers/postgres_data
