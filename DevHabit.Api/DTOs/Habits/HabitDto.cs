@@ -2,18 +2,6 @@
 
 namespace DevHabit.Api.DTOs.Habits;
 
-public interface ICollectionResponse<T>
-{
-    List<T> Items { get; init; }
-}
-
-
-
-public sealed record HabitsCollectionDto : ICollectionResponse<HabitDto>
-{
-    public List<HabitDto> Items { get; init; }
-}
-
 // Request/Response
 // CreateHabitRequest/HabitResponse
 // CreateHabitModel/HabitModel
