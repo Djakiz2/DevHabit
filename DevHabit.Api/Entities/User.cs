@@ -1,12 +1,17 @@
 ﻿namespace DevHabit.Api.Entities;
 
-public sealed class Tag
+public sealed class User
 {
+
     public string Id { get; set; }
 
-    public string UserId { get; set; }
-    public string Name { get; set; } = string.Empty;
-    public string? Description { get; set; }
+    public string Email { get; set; }
+
+    public string Name { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
+
     public DateTime? UpdatedAtUtc { get; set; }
+
+    public string IdentityId { get; set; }
 }

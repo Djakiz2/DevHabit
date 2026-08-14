@@ -10,7 +10,8 @@ builder
     .AddErrorHandling()
     .AddDatabase()
     .AddObservability()
-    .AddApplicationServices();
+    .AddApplicationServices()
+    .AddAuthenticationServices();
 
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
@@ -26,6 +27,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseExceptionHandler();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllers();
 
