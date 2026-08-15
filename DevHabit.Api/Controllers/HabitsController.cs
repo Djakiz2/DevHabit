@@ -17,9 +17,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
-namespace DevHabit.Api.Controllers;
+namespace DevHabit.Api.Controllers; 
 
-[Authorize]
+[Authorize(Roles = Roles.Member)]
 [ApiController]
 [Route("habits")]
 [ApiVersion(1.0)]
@@ -400,6 +400,8 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
 
     private List<LinkDto> CreateLinksForHabit(string id, string? fields)
     {
+
+        //bool isAdmin = User.IsInRole(Roles.Admin);
         List<LinkDto> links = [
             linkService.Create(nameof(GetHabit), "self", HttpMethods.Get, new { id, fields }),
             linkService.Create(nameof(UpdateHabit), "update", HttpMethods.Put, new { id }),
@@ -407,6 +409,8 @@ public sealed class HabitsController(ApplicationDbContext dbContext, LinkService
             linkService.Create(nameof(DeleteHabit), "delete", HttpMethods.Delete, new { id }),
             linkService.Create(nameof(HabitTagsController.UpsertHabitTags), "upsert-tags", HttpMethods.Put, new { habitId = id },
             HabitTagsController.Name)
+
+          
         ];
 
         return links;
