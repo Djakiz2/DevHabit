@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using DevHabit.Api.DTOs.Habits;
+using Microsoft.EntityFrameworkCore;
 
 namespace DevHabit.Api.DTOs.Common;
 
@@ -41,5 +42,5 @@ public sealed record PaginationResult<T> : ICollectionResponse<T>, ILinksRespons
         };
     }
 
-
+    
 }

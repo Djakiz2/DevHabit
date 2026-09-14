@@ -80,5 +80,9 @@ public sealed class EncryptionService(IOptions<EncryptionOptions> options)
             throw new InvalidOperationException("Decryption failed", e);
 
         }
+        catch (FormatException ex)
+        {
+            throw new InvalidOperationException("Invalid cipher text format", ex);
+        }
     }
 }

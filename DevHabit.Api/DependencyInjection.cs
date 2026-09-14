@@ -22,6 +22,15 @@ using Microsoft.IdentityModel.Tokens;
 using DevHabit.Api.Settings;
 using System.Text;
 using System.Net.Http.Headers;
+using DevHabit.Api.DTOs.Entries;
+using Quartz;
+using DevHabit.Api.Jobs;
+using Refit;
+using Polly;
+using Microsoft.Extensions.Http.Resilience;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
+using System.Threading.RateLimiting;
+using DevHabit.Api.Extensions;
 
 namespace DevHabit.Api;
 
@@ -67,6 +76,8 @@ public static class DependencyInjection
             })
             .AddMvc();
         builder.Services.AddOpenApi();
+
+        builder.Services.AddResponseCaching();
 
         return builder;
     }
@@ -130,6 +141,7 @@ public static class DependencyInjection
     {
         builder.Services.AddTransient<SortMappingProvider>();
         builder.Services.AddSingleton<ISortMappingDefinition, SortMappingDefinition<HabitDto, Habit>>(_ => HabitMappings.SortMapping);
+        builder.Services.AddSingleton<ISortMappingDefinition, SortMappingDefinition<EntryDto, Entry>>(_ => EntryMappings.SortMapping);
 
         builder.Services.AddTransient<DataShapingService>();
 
@@ -143,11 +155,15 @@ public static class DependencyInjection
         builder.Services.AddScoped<GitHubAccessTokenService>();
         builder.Services.AddTransient<GitHubService>();
 
+        builder.Services.AddHttpClient().ConfigureHttpClientDefaults(b => b.AddStandardResilienceHandler());
+
+        builder.Services.AddTransient<RefitGitHubService>();
+
         builder.Services
             .AddHttpClient("github")
             .ConfigureHttpClient(client =>
             {
-                client.BaseAddress = new Uri("https://api.github.com");
+                client.BaseAddress = new Uri(builder.Configuration.GetSection("GitHub:BaseUrl").Get<string>()!);
 
                 client.DefaultRequestHeaders
                     .UserAgent.Add(new ProductInfoHeaderValue("DevHabit", "1.0"));
@@ -156,11 +172,46 @@ public static class DependencyInjection
                     .Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
             });
 
+        builder.Services.AddTransient<DelayHandler>();
+        
+        builder.Services
+            .AddRefitGeneratedClient<IGithubApi>(new RefitSettings
+            {
+                ContentSerializer = new NewtonsoftJsonContentSerializer()
+            })
+            .ConfigureHttpClient(client => client.BaseAddress = new Uri(builder.Configuration.GetSection("GitHub:BaseUrl").Get<string>()!));
+            //.AddHttpMessageHandler<DelayHandler>();
+            //.RemoveAllResilienceHandlers()
+            //.AddResilienceHandler("custom", pipeline =>
+            //{
+            //    pipeline.AddTimeout(TimeSpan.FromSeconds(5));
+
+            //    pipeline.AddRetry(new HttpRetryStrategyOptions
+            //    {
+            //        MaxRetryAttempts = 3,
+            //        BackoffType = DelayBackoffType.Exponential,
+            //        UseJitter = true,
+            //        Delay = TimeSpan.FromMilliseconds(500)
+            //    });
+
+            //    pipeline.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
+            //    {
+            //        SamplingDuration = TimeSpan.FromSeconds(10),
+            //        FailureRatio = 0.9,
+            //        MinimumThroughput = 5,
+            //        BreakDuration = TimeSpan.FromSeconds(5)
+            //    });
+
+            //    pipeline.AddTimeout(TimeSpan.FromSeconds(1));
+            //});
+
 
         
         builder.Services.Configure<EncryptionOptions>(builder.Configuration.GetSection("Encryption"));
 
         builder.Services.AddTransient<EncryptionService>();
+
+        builder.Services.AddSingleton<InMemoryETagStore>();
 
 
         return builder;
@@ -193,6 +244,116 @@ public static class DependencyInjection
 
         builder.Services.AddAuthorization();
 
+        return builder;
+    }
+
+
+    public static WebApplicationBuilder AddCorsPolicy(this WebApplicationBuilder builder)
+    {
+        CorsOptions corsOptions = builder.Configuration.GetSection(CorsOptions.SectionName).Get<CorsOptions>()!;
+
+        builder.Services.AddCors(options =>
+        {
+            options.AddPolicy(CorsOptions.PolicyName, policy =>
+            {
+                policy
+                    .WithOrigins(corsOptions.AllowedOrigins)
+                    .AllowAnyMethod()
+                    .AllowAnyHeader();
+
+            });
+        });
+
+        return builder;
+    }
+
+    public static WebApplicationBuilder AddBackgroundJobs(this WebApplicationBuilder builder)
+    {
+        builder.Services.AddQuartz(q =>
+        {
+            q.AddJob<GitHubAutomationSchedulerJob>(opts => opts.WithIdentity("github-automation-scheduler"));
+
+            q.AddTrigger(opts => opts
+                .ForJob("github-automation-scheduler")
+                .WithIdentity("github-automation-scheduler-trigger")
+                .WithSimpleSchedule(s =>
+                {
+                    GitHubAutomationOptions settings = builder.Configuration.GetSection(GitHubAutomationOptions.SectionName)
+                    .Get<GitHubAutomationOptions>()!;
+
+                    s.WithIntervalInMinutes(settings.ScanIntervalMinutes)
+                        .RepeatForever();
+                }));
+
+            // ENtry import cleanup job - runs daily at 3 AM UTC
+            q.AddJob<CleanupEntryImportJobsJob>(opts => opts.WithIdentity("cleanup-entry-imports"));
+
+            q.AddTrigger(opts => opts
+                .ForJob("cleanup-entry-imports")
+                .WithIdentity("cleanup-entry-imports-trigger")
+                .WithCronSchedule("0 0 3 * * ?", x => x.InTimeZone(TimeZoneInfo.Utc)));
+
+        });
+
+        builder.Services.AddQuartzHostedService(options => options.WaitForJobsToComplete = true);
+
+        return builder;
+    }
+
+    public static WebApplicationBuilder AddRateLimiting(this WebApplicationBuilder builder)
+    {
+
+        builder.Services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+            options.OnRejected = async (context, token) =>
+            {
+                if (context.Lease.TryGetMetadata(MetadataName.RetryAfter, out TimeSpan retryAfter))
+                {
+                    context.HttpContext.Response.Headers.RetryAfter = $"{retryAfter.TotalSeconds}";
+
+                    ProblemDetailsFactory problemDetailsFactory = context.HttpContext.RequestServices.GetRequiredService<ProblemDetailsFactory>();
+
+                    Microsoft.AspNetCore.Mvc.ProblemDetails problemDetails = problemDetailsFactory.CreateProblemDetails(
+                        context.HttpContext,
+                        StatusCodes.Status429TooManyRequests,
+                        "Too Many Requests",
+                        detail: $"Too many requests. Please try again after {retryAfter.TotalSeconds} seconds.");
+
+                    await context.HttpContext.Response.WriteAsJsonAsync(problemDetails, cancellationToken: token);
+                }
+            };
+
+            options.AddPolicy("default", httpContext =>
+            {
+                string identityId = httpContext.User.GetIdentityId() ?? string.Empty;
+
+                if (!string.IsNullOrEmpty(identityId))
+                {
+                    return RateLimitPartition.GetTokenBucketLimiter(
+                        identityId,
+                        _ =>
+                             new TokenBucketRateLimiterOptions
+                             {
+                                 TokenLimit = 100,
+                                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                                 QueueLimit = 5,
+                                 ReplenishmentPeriod = TimeSpan.FromMinutes(1),
+                                 TokensPerPeriod = 25
+                             });
+                }
+
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    "anonymous",
+                    _ =>
+                         new FixedWindowRateLimiterOptions
+                         {
+                             PermitLimit = 5,
+                             Window = TimeSpan.FromMinutes(1)
+                         });
+            });
+        });
         return builder;
     }
 }

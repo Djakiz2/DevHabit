@@ -14,6 +14,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DevHabit.Api.Controllers;
 
+[ResponseCache(Duration = 120)]
 [Authorize(Roles = Roles.Member)]
 [ApiController]
 [Route("tags")]
@@ -50,7 +51,11 @@ public sealed class TagsController(ApplicationDbContext dbContext, LinkService l
 
         if (acceptHeader.IncludeLinks)
         {
-            tagsCollectionDto.Links = CreateLinksForTags();
+            tagsCollectionDto.Links = CreateLinksForTags(tags.Count);
+            foreach (TagDto tagDto in tagsCollectionDto.Items)
+            {
+                tagDto.Links = CreateLinksForTag(tagDto.Id);
+            }
         }
 
         return Ok(tagsCollectionDto);
@@ -132,7 +137,7 @@ public sealed class TagsController(ApplicationDbContext dbContext, LinkService l
     }
 
     [HttpPut("{id}")]
-    public async Task<ActionResult> UpdateTag(string id, UpdateTagDto updateTagDto)
+    public async Task<ActionResult> UpdateTag(string id, UpdateTagDto updateTagDto, InMemoryETagStore eTagStore)
     {
 
         string? userId = await userContext.GetUserIdAsync();
@@ -152,6 +157,9 @@ public sealed class TagsController(ApplicationDbContext dbContext, LinkService l
         tag.UpdateFromDto(updateTagDto);
 
         await dbContext.SaveChangesAsync();
+
+        eTagStore.SetETag(Request.Path.Value!, tag.ToDto());
+        //Response.Headers.ETag = eTagStore.GetETag(Request.Path.Value!);
 
         return NoContent();
     }
@@ -182,13 +190,17 @@ public sealed class TagsController(ApplicationDbContext dbContext, LinkService l
     }
 
 
-    private List<LinkDto> CreateLinksForTags()
+    private List<LinkDto> CreateLinksForTags(int tagsCount)
     {
         List<LinkDto> links =
         [
             linkService.Create(nameof(GetTags), "self", HttpMethods.Get),
-            linkService.Create(nameof(CreateTag), "create", HttpMethods.Post)
+            
         ];
+
+        if (tagsCount < 5) {
+            links.Add(linkService.Create(nameof(CreateTag), "create", HttpMethods.Post));
+        }
 
         return links;
     }

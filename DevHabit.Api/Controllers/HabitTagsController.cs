@@ -59,7 +59,7 @@ public sealed class HabitTagsController(ApplicationDbContext dbContext) : Contro
 
         await dbContext.SaveChangesAsync();
 
-        return Ok();
+        return NoContent();
     }
 
     //tags

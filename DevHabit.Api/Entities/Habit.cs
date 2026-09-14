@@ -21,6 +21,8 @@ public sealed class Habit
     public DateOnly? EndDate { get; set; }
     public Milestone? Milestone { get; set; }
 
+    public AutomationSource? AutomationSource { get; set; }
+
     public DateTime CreatedAtUtc { get; set; }
 
     public DateTime? UpdatedAtUtc { get; set; }
@@ -29,6 +31,13 @@ public sealed class Habit
 
     public List<HabitTag> HabitTags { get; set; }
     public List<Tag> Tags { get; set; }
+
+    public static string NewId() => $"h_{Guid.CreateVersion7()}";
+}
+
+public enum AutomationSource
+{
+    GitHub = 1
 }
 
 public enum HabitType

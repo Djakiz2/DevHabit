@@ -11,4 +11,6 @@ public sealed class GitHubAccessToken
     public DateTime ExpiresAtUtc { get; set; }
 
     public DateTime CreatedAtUtc { get; set; }
+
+    public static string NewId() => $"gh_{Guid.CreateVersion7()}";
 }
