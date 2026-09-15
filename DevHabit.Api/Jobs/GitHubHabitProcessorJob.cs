@@ -23,7 +23,11 @@ public sealed class GitHubHabitProcessorJob(
 
         try
         {
-            logger.LogInformation("Processing GitHub events for habit {HabitId}", habitId);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("Processing GitHub events for habit {HabitId}", habitId);
+
+            }
 
             // Get the habit and ensure it still exists and is configured for GitHub automation
             Habit? habit = await dbContext.Habits
@@ -34,7 +38,11 @@ public sealed class GitHubHabitProcessorJob(
 
             if (habit is null)
             {
-                logger.LogWarning("Habit {HabitId} not found or no longer configured for GitHub automation", habitId);
+                if (logger.IsEnabled(LogLevel.Warning))
+                {
+                    logger.LogWarning("Habit {HabitId} not found or no longer configured for GitHub automation", habitId);
+
+                }
                 return;
             }
 
@@ -43,7 +51,11 @@ public sealed class GitHubHabitProcessorJob(
 
             if (string.IsNullOrWhiteSpace(accessToken))
             {
-                logger.LogWarning("No GitHub access token found for user {UserId}", habit.UserId);
+                if (logger.IsEnabled(LogLevel.Warning))
+                {
+                    logger.LogWarning("No GitHub access token found for user {UserId}", habit.UserId);
+
+                }
                 return;
             }
 
@@ -54,7 +66,11 @@ public sealed class GitHubHabitProcessorJob(
 
             if (profile is null)
             {
-                logger.LogWarning("Couldn't retrieve GitHub profile for user {UserId}", habit.UserId);
+                if (logger.IsEnabled(LogLevel.Warning))
+                {
+                    logger.LogWarning("Couldn't retrieve GitHub profile for user {UserId}", habit.UserId);
+
+                }
                 return;
             }
 
@@ -82,7 +98,11 @@ public sealed class GitHubHabitProcessorJob(
 
             if (!gitHubEvents.Any())
             {
-                logger.LogWarning("Couldn't retrieve GitHub events for user {UserId}", habit.UserId);
+                if (logger.IsEnabled(LogLevel.Warning))
+                {
+                    logger.LogWarning("Couldn't retrieve GitHub events for user {UserId}", habit.UserId);
+
+                }
                 return;
             }
 
@@ -91,7 +111,11 @@ public sealed class GitHubHabitProcessorJob(
                 .Where(a => a.Type == PushEventType)
                 .ToList();
 
-            logger.LogInformation("Found {Count} push events for habit {HabitId}", pushEvents.Count, habitId);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("Found {Count} push events for habit {HabitId}", pushEvents.Count, habitId);
+
+            }
 
             foreach (GitHubEventDto gitHubEventDto in pushEvents)
             {
@@ -103,7 +127,11 @@ public sealed class GitHubHabitProcessorJob(
 
                 if (exists)
                 {
-                    logger.LogDebug("Entry already exists for event {EventId}", gitHubEventDto.Id);
+                    if (logger.IsEnabled(LogLevel.Debug))
+                    {
+                        logger.LogDebug("Entry already exists for event {EventId}", gitHubEventDto.Id);
+                    }
+                    
                     continue;
                 }
 
@@ -129,21 +157,33 @@ public sealed class GitHubHabitProcessorJob(
                 };
 
                 dbContext.Entries.Add(entry);
-                logger.LogInformation(
+                if (logger.IsEnabled(LogLevel.Information))
+                {
+                    logger.LogInformation(
                     "Created entry for event {EventId} on habit {HabitId}",
                     gitHubEventDto.Id,
                     habitId);
+                }
+                
             }
 
             await dbContext.SaveChangesAsync(context.CancellationToken);
-            logger.LogInformation("Completed processing GitHub events for habit {HabitId}", habitId);
+            if (logger.IsEnabled(LogLevel.Information))
+            {
+                logger.LogInformation("Completed processing GitHub events for habit {HabitId}", habitId);
+            }
+            
         }
         catch (Exception ex)
         {
-            logger.LogError(
+            if (logger.IsEnabled(LogLevel.Error))
+            {
+                logger.LogError(
                 ex,
                 "Error processing GitHub events for habit {HabitId}",
                 habitId);
+            }
+            
             throw;
         }
     }

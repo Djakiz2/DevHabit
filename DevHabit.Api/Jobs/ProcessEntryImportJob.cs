@@ -21,7 +21,11 @@ public class ProcessEntryImportJob(
 
         if (importJob is null)
         {
-            logger.LogError("Import job {ImportJobId} not found", importJobId);
+            if (logger.IsEnabled(LogLevel.Error))
+            {
+                logger.LogError("Import job {ImportJobId} not found", importJobId);
+
+            }
             return;
         }
 
@@ -106,7 +110,11 @@ public class ProcessEntryImportJob(
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error processing import job {ImportJobId}", importJobId);
+            if (logger.IsEnabled(LogLevel.Error))
+            {
+                logger.LogError(ex, "Error processing import job {ImportJobId}", importJobId);
+
+            }
 
             importJob.Status = EntryImportStatus.Failed;
             importJob.Errors.Add($"Fatal error: {ex.Message}");

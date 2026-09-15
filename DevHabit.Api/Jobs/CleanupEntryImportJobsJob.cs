@@ -21,7 +21,7 @@ public sealed class CleanupEntryImportJobsJob(
                 .Where(j => j.CompletedAtUtc < completedJobsCutoffDate)
                 .ExecuteDeleteAsync(context.CancellationToken);
 
-            if (deletedCount > 0)
+            if (deletedCount > 0 && logger.IsEnabled(LogLevel.Information))
             {
                 logger.LogInformation("Deleted {Count} old import jobs", deletedCount);
             }
@@ -34,7 +34,7 @@ public sealed class CleanupEntryImportJobsJob(
                 .Where(j => j.CompletedAtUtc < failedJobsCutoffDate)
                 .ExecuteDeleteAsync(context.CancellationToken);
 
-            if (deletedCount > 0)
+            if (deletedCount > 0 && logger.IsEnabled(LogLevel.Information))
             {
                 logger.LogInformation("Deleted {Count} old failed import jobs", deletedCount);
             }
@@ -50,13 +50,17 @@ public sealed class CleanupEntryImportJobsJob(
 
             if (deletedCount > 0)
             {
-                logger.LogInformation("Deleted {Count} stuck import jobs", deletedCount);
+                //logger.LogInformation("Deleted {Count} stuck import jobs", deletedCount);
             }
             
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error cleaning up old import jobs");
+            if (logger.IsEnabled(LogLevel.Error))
+            {
+                logger.LogError(ex, "Error cleaning up old import jobs");
+            }
+            
         }
     }
 }
