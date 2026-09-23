@@ -1,0 +1,3 @@
+DevHabit API is a versioned RESTful web service built with .NET 9 that helps users track personal habits and routines. It provides secure JWT-based authentication, background job processing, GitHub integration, and structured observability through OpenTelemetry. The system uses PostgreSQL, Docker, xUnit for testing. It supports local development, CI/CD pipelines, and containerized production environments.
+
+This project was built following [Milan Jovanović](https://github.com/m-jovanovic)'s course [Pragmatic REST APIs](https://milanjovanovic.tech/pragmatic-rest-apis), using the latest ASP.NET Core features and best practices.
