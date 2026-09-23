@@ -21,6 +21,8 @@ public sealed class CleanupEntryImportJobsJob(
                 .Where(j => j.CompletedAtUtc < completedJobsCutoffDate)
                 .ExecuteDeleteAsync(context.CancellationToken);
 
+
+
             if (deletedCount > 0 && logger.IsEnabled(LogLevel.Information))
             {
                 logger.LogInformation("Deleted {Count} old import jobs", deletedCount);

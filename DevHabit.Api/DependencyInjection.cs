@@ -31,6 +31,7 @@ using Microsoft.Extensions.Http.Resilience;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using System.Threading.RateLimiting;
 using DevHabit.Api.Extensions;
+using System.Reflection;
 
 namespace DevHabit.Api;
 
@@ -74,8 +75,13 @@ public static class DependencyInjection
                         .Template("application/vnd.dev-habit.hateoas.{version}+json")
                         .Build());
             })
-            .AddMvc();
-        builder.Services.AddOpenApi();
+            .AddMvc()
+            .AddApiExplorer();
+        //builder.Services.AddOpenApi();
+
+        builder.Services.AddSwaggerGen();
+        builder.Services.ConfigureOptions<ConfigureSwaggerGenOptions>();
+        builder.Services.ConfigureOptions<ConfigureSwaggerUIOptions>();
 
         builder.Services.AddResponseCaching();
 

@@ -1,4 +1,5 @@
-﻿using DevHabit.Api.Database;
+﻿using System.Net.Mime;
+using DevHabit.Api.Database;
 using DevHabit.Api.DTOs.Auth;
 using DevHabit.Api.DTOs.Users;
 using DevHabit.Api.Entities;
@@ -16,6 +17,11 @@ namespace DevHabit.Api.Controllers;
 [ApiController]
 [Route("auth")]
 [AllowAnonymous]
+[Produces(
+    MediaTypeNames.Application.Json,
+    CustomMediaTypeNames.Application.JsonV1,
+    CustomMediaTypeNames.Application.HateoasJson,
+    CustomMediaTypeNames.Application.HateoasJsonV1)]
 public sealed class AuthController(
     UserManager<IdentityUser> userManager,
     ApplicationIdentityDbContext identityDbContext,
@@ -25,6 +31,7 @@ public sealed class AuthController(
 {
 
     private readonly JwtAuthOptions _jwtAuthOptions = options.Value;
+
 
     [HttpPost("register")]
     public async Task<ActionResult<AccessTokensDto>> Register(RegisterUserDto registerUserDto)
